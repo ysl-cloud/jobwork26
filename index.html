@@ -33,7 +33,8 @@ table.g textarea{min-height:54px;border:0;padding:4px;background:transparent}tab
 .btn{border:1px solid var(--ac);background:var(--ac);color:#fff;border-radius:8px;padding:9px 18px;cursor:pointer;font-weight:500}.btn.gh{background:transparent;color:var(--ac)}.btn.sm{padding:4px 10px;font-size:12.5px}
 .n2{display:flex;justify-content:space-between;gap:10px;margin-top:20px}.tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .msg{font-size:13px;color:var(--ok);min-height:20px;margin-top:6px}.msg.er{color:var(--wa)}
-.row3{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.cd{border:1px solid var(--ln);border-radius:10px;padding:12px 14px;background:var(--sf)}.cdh{font-weight:700;color:var(--ac)}.cdh span{color:var(--tx);margin-left:4px}.cdq{font-weight:500;margin:2px 0 4px}.cd ul{margin:0 0 8px;padding-left:18px;color:var(--mu);font-size:13px}.cd label{display:block;font-weight:500;font-size:13.5px;margin-bottom:3px}.cd textarea{min-height:60px}
+.row3{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
 @media(max-width:820px){.wrap{grid-template-columns:1fr}nav{position:static;display:flex;overflow-x:auto;gap:4px}nav .m,nav .p{display:none}nav button{width:auto;white-space:nowrap}.card{padding:16px}}
 </style>
 </head>
@@ -52,6 +53,10 @@ const R=n=>[...Array(n).keys()];
 
 /* ===== 프롬프트 (워크시트 원문, {키}는 입력값으로 자동 치환) ===== */
 const P={
+ p0:`1) 전공은 {c1}, 2) 관심산업은 {c2}
+3) 내가 흥미있는 것은 {c3}, 4) 나의 강점은 {c4}
+5) 내가 가장 중요하게 생각하는 것은 {c5}, 6) 나에게 맞지 않는 것은 {c6}
+7) 1)~6)까지의 내용을 참고하고, 작년부터 나와 한 대화를 분석해서 추천해주고 싶은 산업, 기업, 직무를 3개씩 추천해서 표로 정리해줘.`,
  p1:`나는 {gm}이고, {interest}이 있어.
 어떤 직무가 나에게 잘 맞을지 5가지 추천해주고,
 각 직무의 핵심 업무를 2-3줄로 설명해줘.
@@ -95,42 +100,53 @@ const P={
 5. 3개월 준비 로드맵 (주 단위 구체적 계획)
 전문적이고 구체적으로 작성해줘.`
 };
-const APX=[['프롬프트 1 | 직무 추천','p1'],['프롬프트 2 | 직무 정의 & 주요업무 파악','p2'],['프롬프트 3 | 채용공고 KSA 역량 분석','p3'],['프롬프트 4 | 역량 갭 분석','p4'],['프롬프트 5 | 직무 분석 리포트 생성','p5']];
+const APX=[['프롬프트 0 | 나를 알아야 직무가 보인다 (6개 카드 → 직무 추천)','p0'],['프롬프트 1 | 직무 추천','p1'],['프롬프트 2 | 직무 정의 & 주요업무 파악','p2'],['프롬프트 3 | 채용공고 KSA 역량 분석','p3'],['프롬프트 4 | 역량 갭 분석','p4'],['프롬프트 5 | 직무 분석 리포트 생성','p5']];
 
+const CARDS=[
+ {k:'c1',no:'01',en:'Major',ko:'전공',q0:'내 전공·배경과 연결하려면?',qs:['전공에서 가장 자신 있는 부분은?','전공을 활용할 수 있는 직무는?','전공 외 추가로 가진 스킬·경험은?','전공과 다른 분야로 가고 싶다면?'],lab:'1) 전공은'},
+ {k:'c2',no:'02',en:'Industry',ko:'산업',q0:'어떤 분야에 끌리나?',qs:['평소 관심 갔던 산업은? (IT·금융·의료)','일하고 싶은 제품·서비스는?','어떤 기업의 고객과 일하고 싶나?','선호 회사 규모는? (대기업·스타트업)'],lab:'2) 관심산업은'},
+ {k:'c3',no:'03',en:'Interest',ko:'흥미',q0:'무엇이 재미있는가?',qs:['시간 가는 줄 모르고 했던 활동은?','돈 없어도 계속할 수 있는 일은?','자주 찾아보는 콘텐츠 유형은?','유독 즐거웠던 과목·활동은?'],lab:'3) 내가 흥미있는 것은'},
+ {k:'c4',no:'04',en:'Strength',ko:'강점',q0:'무엇을 잘하는가?',qs:['주변에서 잘한다고 하는 것은?','남보다 빠르게 쉽게 배운 것은?','칭찬 받은 경험 Top 3는?','팀에서 내가 자주 맡는 역할은?'],lab:'4) 나의 강점은'},
+ {k:'c5',no:'05',en:'Value',ko:'가치관',q0:'일에서 무엇이 중요한가?',qs:['절대 포기 못 하는 근무 조건은?','10년 후 어떤 사람으로 불리고 싶나?','돈 vs 의미 중 더 중요한 것은?','자율성 / 안정성 / 성장 중 우선은?'],lab:'5) 내가 가장 중요하게 생각하는 것은'},
+ {k:'c6',no:'06',en:'Avoid',ko:'기피',q0:'무엇이 맞지 않는가?',qs:['절대 하기 싫은 업무 방식은?','스트레스 가장 많이 받는 상황은?',"경험 후 '이건 아니다' 싶었던 일은?",'혼자 vs 팀 중 더 힘든 방식은?'],lab:'6) 나에게 맞지 않는 것은'}];
+const PAIRS=['산업 + 전공 → 타겟 기업 범위','흥미 + 강점 → 직무 방향','가치관 + 기피 → 환경 필터'];
 /* ===== 워크시트 구조 =====
  블록: f=필드목록, g=표(rows×cols 입력), h=소제목, pr=프롬프트, tip=팁, ksa=KSA 표(항목1~5 × K/S/A) */
 const SECT=[
 {id:'basic',nav:'기본 정보',tag:'시작',title:'나의 기본 정보',lead:'입력한 정보는 결과지와 AI 프롬프트에 자동으로 들어갑니다. 이 기기 브라우저에만 저장됩니다.',b:[
  {t:'f',items:[{k:'name',l:'이름',type:'text'},{k:'dept',l:'학과 / 학번',type:'text',ph:'예) 경영학과 / 2023000000'},{k:'grade',l:'학년',type:'sel',opts:['1학년','2학년','3학년','4학년','졸업생']},{k:'date',l:'작성 날짜',type:'date'}]}]},
-{id:'w1',nav:'워크시트 1',tag:'실습 1',title:'나의 관심 직무 후보 선택',lead:'나에 대한 질문에 답하고, AI 추천을 받아 관심 직무 3개를 고릅니다.',b:[
- {t:'h',title:'STEP 1  나에 대한 3가지 질문에 답해보세요'},
+{id:'w1',nav:'관심 직무 후보 선택',tag:'직무 선택',title:'나의 관심 직무 후보 선택',lead:'나에 대한 질문에 답하고, AI 추천을 받아 관심 직무 3개를 고릅니다.',b:[
+ {t:'h',title:'나에 대한 3가지 질문에 답해보세요'},
  {t:'f',items:[{k:'q1',l:'Q1. 어떤 활동을 할 때 시간 가는 줄 몰랐나요?',type:'area'},{k:'q2',l:'Q2. 어떤 결과물을 만들 때 뿌듯함을 느끼나요?',type:'area'},{k:'q3',l:'Q3. 어떤 환경에서 일하고 싶나요?',type:'area'}]},
- {t:'h',title:'STEP 2  AI 프롬프트로 직무 추천받기 (실습 1)'},
+ {t:'h',title:'나를 알아야 직무가 보인다 — 6가지 카드'},
+ {t:'tip',x:'아래 6가지 카드에 답하면 나에게 맞는 직무가 보입니다. 질문을 참고해서 각 카드의 빈칸을 한 줄로 채우세요.'},
+ {t:'cards'},{t:'pr',id:'p0'},
+ {t:'h',title:'AI 프롬프트로 직무 추천받기'},
  {t:'f',items:[{k:'interest',l:'프롬프트에 넣을 나의 관심사나 경험',type:'text',ph:'예) 영상 편집 동아리 활동과 SNS 운영 경험'}]},
  {t:'pr',id:'p1'},
- {t:'h',title:'STEP 3  AI 추천 결과를 보고 관심 직무 3개를 선택하세요'},
+ {t:'h',title:'AI 추천 결과를 보고 관심 직무 3개를 선택하세요'},
  {t:'g',gk:'pick',rows:['1순위','2순위','3순위'],cols:['관심 직무명','선택 이유 (간단히)','관련 산업/업종']},
- {t:'tip',x:'1순위 직무를 중심으로 워크시트 2~4를 작성하세요. 완료 후 2, 3순위로도 반복 활용할 수 있어요!'}]},
-{id:'w2',nav:'워크시트 2',tag:'실습 2',title:'AI로 직무 정보 수집 결과 정리',lead:'탐색 대상 직무를 정하고 AI가 분석한 내용을 정리합니다.',b:[
+ {t:'tip',x:'1순위 직무를 중심으로 다음 단계(직무 정보 수집 ~ 리포트 완성)를 작성하세요. 완료 후 2, 3순위로도 반복 활용할 수 있어요!'}]},
+{id:'w2',nav:'직무 정보 수집',tag:'정보 수집',title:'AI로 직무 정보 수집 결과 정리',lead:'탐색 대상 직무를 정하고 AI가 분석한 내용을 정리합니다.',b:[
  {t:'f',items:[{k:'job',l:'탐색 대상 직무',type:'text',ph:'예) 콘텐츠 마케터'},{k:'field',l:'분야 (프롬프트용)',type:'text',ph:'예) 마케팅'}]},
- {t:'h',title:'2-1  직무 정의 & 주요업무 (AI 분석 결과)'},{t:'pr',id:'p2'},
+ {t:'h',title:'직무 정의 & 주요업무 (AI 분석 결과)'},{t:'pr',id:'p2'},
  {t:'g',gk:'jd',rows:['직무 정의','주요 업무 (5가지)','이 직무의 매력적인 점','어려운 점','신입 핵심 역량'],cols:['AI 분석 결과 정리']},
- {t:'h',title:'2-2  채용공고 KSA 역량 분석 (AI 분석 결과)'},
+ {t:'h',title:'채용공고 KSA 역량 분석 (AI 분석 결과)'},
  {t:'f',items:[{k:'co',l:'분석한 채용공고: 기업',type:'text'},{k:'jobp',l:'채용공고 직무',type:'text'},{k:'url',l:'출처 URL',type:'text'}]},
  {t:'pr',id:'p3'},
  {t:'ksa',gk:'ksa'},
  {t:'g',gk:'kw',rows:['1','2','3','4','5'],cols:['핵심 키워드 Top 5']},
  {t:'g',gk:'prep',rows:['1','2','3'],cols:['AI가 제안한 준비 방법 3가지']},
- {t:'h',title:'2-3  2025 직무 트렌드 (AI 분석 결과)'},{t:'pr',id:'p3b'},
+ {t:'h',title:'2025 직무 트렌드 (AI 분석 결과)'},{t:'pr',id:'p3b'},
  {t:'g',gk:'tr',rows:['2025 핵심 스킬 3가지','AI 도입으로 변화하는 업무','신입 vs 3년차 차이'],cols:['트렌드 정리']},
  {t:'tip',x:'채용공고는 잡코리아(saramin.co.kr), 원티드(wanted.co.kr), 링크드인(linkedin.com)에서 찾을 수 있어요. 공고 본문 전체를 복사해서 AI에 붙여넣으세요.'}]},
-{id:'w3',nav:'워크시트 3',tag:'실습 3',title:'나의 역량 갭 분석',lead:'현재 내가 가진 역량을 솔직하게 적고, AI로 갭을 분석합니다.',b:[
- {t:'h',title:'3-1  나의 현재 역량 (KSA) 작성'},
+{id:'w3',nav:'나의 역량 갭 분석',tag:'역량 분석',title:'나의 역량 갭 분석',lead:'현재 내가 가진 역량을 솔직하게 적고, AI로 갭을 분석합니다.',b:[
+ {t:'h',title:'나의 현재 역량 (KSA) 작성'},
  {t:'g',gk:'my',rows:['K 지식','S 기술','A 태도'],cols:['현재 내가 갖추고 있는 것 (솔직하게)','어디서/어떻게 쌓았나요?']},
- {t:'h',title:'3-2  AI 역량 갭 분석 결과'},{t:'pr',id:'p4'},
+ {t:'h',title:'AI 역량 갭 분석 결과'},{t:'pr',id:'p4'},
  {t:'g',gk:'gap',rows:['✅ 이미 갖춘 강점','⚠️ 부족한 갭 (우선순위순)','📅 3개월 내 채울 수 있는 것','🎯 장기 목표 (6개월+)'],cols:['AI 분석 결과']},
  {t:'tip',x:"AI 결과가 너무 일반적이면 '더 구체적으로', '내 경험 [OO]을 고려해서 다시 분석해줘'라고 추가 요청하세요."}]},
-{id:'w4',nav:'워크시트 4',tag:'실습 4',title:'나만의 직무 분석 리포트 완성',lead:'AI 초안을 먼저 생성한 후, 나의 실제 경험과 구체적 수치를 추가하여 완성하세요.',b:[
+{id:'w4',nav:'직무 분석 리포트 완성',tag:'리포트 완성',title:'나만의 직무 분석 리포트 완성',lead:'AI 초안을 먼저 생성한 후, 나의 실제 경험과 구체적 수치를 추가하여 완성하세요.',b:[
  {t:'f',items:[{k:'why',l:'관심 이유 (프롬프트용)',type:'text'}]},{t:'pr',id:'p5'},
  {t:'h',title:'01  직무 선택 이유'},{t:'f',items:[{k:'r_why',l:'직무 선택 이유 (3-4줄)',type:'area'}]},
  {t:'h',title:'02  직무 정의 & 주요업무'},{t:'g',gk:'r_def',rows:['직무 정의','주요 업무 (5가지)'],cols:['내용']},
@@ -150,12 +166,13 @@ const val=k=>(D[k]==null?'':String(D[k]));
 const gm=()=>[val('grade'),val('dept').split('/')[0].trim()].filter(Boolean).join(' ')||'[학년/전공]';
 function fill(t){
  const m={gm:gm(),interest:val('interest')||'[관심사나 경험]',field:val('field')||'[분야]',job:val('job')||'[직무명]',co:val('co')||'[기업명]',jobp:val('jobp')||val('job')||'[직무명]',
-  ck:val('my_0_0')||'[K 목록]',cs:val('my_1_0')||'[S 목록]',ca:val('my_2_0')||'[A 목록]',why:val('why')||'[직접 입력]'};
+  c1:val('c1')||'[ ]',c2:val('c2')||'[ ]',c3:val('c3')||'[ ]',c4:val('c4')||'[ ]',c5:val('c5')||'[ ]',c6:val('c6')||'[ ]',ck:val('my_0_0')||'[K 목록]',cs:val('my_1_0')||'[S 목록]',ca:val('my_2_0')||'[A 목록]',why:val('why')||'[직접 입력]'};
  return t.replace(/\{(\w+)\}/g,(_,k)=>m[k]);
 }
 /* 진행률 대상 키 */
 function keysOf(s){const o=[];s.b.forEach(b=>{if(b.t==='f')b.items.forEach(i=>o.push(i.k));
  if(b.t==='g')b.rows.forEach((_,r)=>b.cols.forEach((_,c)=>o.push(`${b.gk}_${r}_${c}`)));
+ if(b.t==='cards')CARDS.forEach(c=>o.push(c.k));
  if(b.t==='ksa')R(5).forEach(r=>R(3).forEach(c=>o.push(`${b.gk}_${r}_${c}`)));});return o}
 const pct=s=>{const ks=keysOf(s);if(!ks.length)return null;return Math.round(100*ks.filter(k=>val(k).trim()).length/ks.length)};
 const total=()=>{let a=0,n=0;SECT.forEach(s=>{const ks=keysOf(s);n+=ks.length;a+=ks.filter(k=>val(k).trim()).length});return n?Math.round(100*a/n):0};
@@ -177,6 +194,7 @@ function block(b){switch(b.t){
  case 'g':return grid(b);
  case 'ksa':return ksa(b);
  case 'pr':return prBox(b.id);
+ case 'cards':return `<div class="row3">${CARDS.map(c=>`<div class="cd"><div class="cdh"><b>${c.no}</b> ${c.en} <span>${c.ko}</span></div><div class="cdq">${c.q0}</div><ul>${c.qs.map(q=>`<li>${esc(q)}</li>`).join('')}</ul><label for="${c.k}">${esc(c.lab)}</label><textarea id="${c.k}" data-k="${c.k}">${esc(val(c.k))}</textarea></div>`).join('')}</div><div class="tip">🔗 ${PAIRS.join('  ·  ')}</div>`;
  case 'tip':return `<div class="tip">💡 ${esc(b.x)}</div>`;
  case 'apx':return APX.map(([t,id])=>prBox(id,t)).join('');
  case 'out':return `<p class="lead">현재 작성률 <b>${total()}%</b> (빈 칸은 Word 파일에서도 빈 칸으로 남습니다)</p>
@@ -229,25 +247,28 @@ function buildDoc(X){
  ch.push(new Paragraph({spacing:{after:200},children:[run('AI활용 맞춤형 직무탐색 워크시트',{size:26,color:'667269'})]}));
  ch.push(tbl([2200,7438],[f('이름','name'),f('학과 / 학번','dept'),f('학년','grade'),f('작성 날짜','date')]));
  /* 워크시트 1 */
- ch.push(H('워크시트 1  나의 관심 직무 후보 선택',1),H('STEP 1  나에 대한 3가지 질문',2));
+ ch.push(H('나의 관심 직무 후보 선택',1),H('나에 대한 3가지 질문에 답해보세요',2));
  ch.push(tbl([3200,6438],[[{t:'질문',h:1},{t:'나의 답변',h:1}],[{t:'Q1. 어떤 활동을 할 때 시간 가는 줄 몰랐나요?',h:1},{t:val('q1')}],[{t:'Q2. 어떤 결과물을 만들 때 뿌듯함을 느끼나요?',h:1},{t:val('q2')}],[{t:'Q3. 어떤 환경에서 일하고 싶나요?',h:1},{t:val('q3')}]]));
- ch.push(H('STEP 2  AI 프롬프트로 직무 추천받기 (실습 1)',2),promptBox('p1'),H('STEP 3  관심 직무 3개 선택',2));
+ ch.push(H('나를 알아야 직무가 보인다 — 6가지 카드',2));
+ ch.push(tbl([1500,3700,4438],[[{t:'카드',h:1},{t:'생각해 볼 질문',h:1},{t:'나의 답',h:1}],...CARDS.map(c=>[{t:c.no+' '+c.en+' '+c.ko+'\n'+c.q0,h:1},{t:c.qs.map(q=>'· '+q).join('\n')},{t:c.lab+' '+val(c.k)}])]));
+ ch.push(sp(),note(PAIRS.join('  ·  ')),sp(),promptBox('p0'));
+ ch.push(H('AI 프롬프트로 직무 추천받기',2),promptBox('p1'),H('관심 직무 3개 선택',2));
  ch.push(tbl([1200,2600,3438,2400],[[{t:'순위',h:1},{t:'관심 직무명',h:1},{t:'선택 이유 (간단히)',h:1},{t:'관련 산업/업종',h:1}],...R(3).map(r=>[{t:(r+1)+'순위',h:1},...R(3).map(c=>({t:val(`pick_${r}_${c}`)}))])]));
- ch.push(sp(),note('1순위 직무를 중심으로 워크시트 2~4를 작성하세요. 완료 후 2, 3순위로도 반복 활용할 수 있어요!'));
+ ch.push(sp(),note('1순위 직무를 중심으로 다음 단계(직무 정보 수집 ~ 리포트 완성)를 작성하세요. 완료 후 2, 3순위로도 반복 활용할 수 있어요!'));
  /* 워크시트 2 */
- ch.push(new Paragraph({children:[new PageBreak()]}),H('워크시트 2  AI로 직무 정보 수집 결과 정리',1));
+ ch.push(new Paragraph({children:[new PageBreak()]}),H('AI로 직무 정보 수집 결과 정리',1));
  ch.push(new Paragraph({spacing:{after:120},children:[run('탐색 대상 직무 : ',{bold:true}),run(jobN||'(미입력)')]}));
- ch.push(H('2-1  직무 정의 & 주요업무 (AI 분석 결과)',2),promptBox('p2'),sp(),gridT('jd',['직무 정의','주요 업무 (5가지)','이 직무의 매력적인 점','어려운 점','신입 핵심 역량'],['AI 분석 결과 정리'],'항목'));
- ch.push(H('2-2  채용공고 KSA 역량 분석 (AI 분석 결과)',2),promptBox('p3'),sp());
+ ch.push(H('직무 정의 & 주요업무 (AI 분석 결과)',2),promptBox('p2'),sp(),gridT('jd',['직무 정의','주요 업무 (5가지)','이 직무의 매력적인 점','어려운 점','신입 핵심 역량'],['AI 분석 결과 정리'],'항목'));
+ ch.push(H('채용공고 KSA 역량 분석 (AI 분석 결과)',2),promptBox('p3'),sp());
  ch.push(new Paragraph({spacing:{after:100},children:[run('분석한 채용공고 : ',{bold:true}),run(`${val('co')||'-'} 기업 | 직무 : ${val('jobp')||'-'} | 출처 URL : ${val('url')||'-'}`)]}));
  ch.push(ksaT('ksa'),sp(),tbl([4000,5638],[[{t:'핵심 키워드 Top 5',h:1},{t:'AI가 제안한 준비 방법 3가지',h:1}],[{t:R(5).map(r=>`${r+1}. ${val('kw_'+r+'_0')}`).join('\n')},{t:R(3).map(r=>`${r+1}. ${val('prep_'+r+'_0')}`).join('\n')}]]));
- ch.push(H('2-3  2025 직무 트렌드 (AI 분석 결과)',2),promptBox('p3b'),sp(),gridT('tr',['2025 핵심 스킬 3가지','AI 도입으로 변화하는 업무','신입 vs 3년차 차이'],['트렌드 정리'],'항목'));
+ ch.push(H('2025 직무 트렌드 (AI 분석 결과)',2),promptBox('p3b'),sp(),gridT('tr',['2025 핵심 스킬 3가지','AI 도입으로 변화하는 업무','신입 vs 3년차 차이'],['트렌드 정리'],'항목'));
  ch.push(sp(),note('채용공고는 잡코리아(saramin.co.kr), 원티드(wanted.co.kr), 링크드인(linkedin.com)에서 찾을 수 있어요. 공고 본문 전체를 복사해서 AI에 붙여넣으세요.'));
  /* 워크시트 3 */
- ch.push(new Paragraph({children:[new PageBreak()]}),H('워크시트 3  나의 역량 갭 분석',1),H('3-1  나의 현재 역량 (KSA)',2),gridT('my',['K 지식','S 기술','A 태도'],['현재 내가 갖추고 있는 것 (솔직하게)','어디서/어떻게 쌓았나요?']));
- ch.push(H('3-2  AI 역량 갭 분석 결과',2),promptBox('p4'),sp(),gridT('gap',['✅ 이미 갖춘 강점','⚠️ 부족한 갭 (우선순위순)','📅 3개월 내 채울 수 있는 것','🎯 장기 목표 (6개월+)'],['AI 분석 결과']),sp(),note("AI 결과가 너무 일반적이면 '더 구체적으로', '내 경험 [OO]을 고려해서 다시 분석해줘'라고 추가 요청하세요."));
+ ch.push(new Paragraph({children:[new PageBreak()]}),H('나의 역량 갭 분석',1),H('나의 현재 역량 (KSA)',2),gridT('my',['K 지식','S 기술','A 태도'],['현재 내가 갖추고 있는 것 (솔직하게)','어디서/어떻게 쌓았나요?']));
+ ch.push(H('AI 역량 갭 분석 결과',2),promptBox('p4'),sp(),gridT('gap',['✅ 이미 갖춘 강점','⚠️ 부족한 갭 (우선순위순)','📅 3개월 내 채울 수 있는 것','🎯 장기 목표 (6개월+)'],['AI 분석 결과']),sp(),note("AI 결과가 너무 일반적이면 '더 구체적으로', '내 경험 [OO]을 고려해서 다시 분석해줘'라고 추가 요청하세요."));
  /* 워크시트 4 */
- ch.push(new Paragraph({children:[new PageBreak()]}),H('워크시트 4  나만의 직무 분석 리포트 완성',1));
+ ch.push(new Paragraph({children:[new PageBreak()]}),H('나만의 직무 분석 리포트 완성',1));
  ch.push(new Paragraph({spacing:{after:120},children:[run('AI 초안을 먼저 생성한 후, 나의 실제 경험과 구체적 수치를 추가하여 완성하세요.',{color:'667269'})]}),promptBox('p5'));
  ch.push(H('01  직무 선택 이유',2),tbl([W],[[{t:val('r_why')}]]));
  ch.push(H('02  직무 정의 & 주요업무',2),gridT('r_def',['직무 정의','주요 업무 (5가지)'],['내용'],'항목'));
@@ -273,6 +294,7 @@ function fallbackHtml(){const t=(rows,cols,gk)=>`<table><tr><th>구분</th>${col
 /* ===== 예시 (가상 학생) ===== */
 const EX={name:'홍길동',dept:'경영학과 / 2023000000',grade:'3학년',date:new Date().toISOString().slice(0,10),
  q1:'동아리 SNS 계정을 운영하며 콘텐츠를 기획하고 반응을 분석할 때',q2:'내가 만든 카드뉴스가 조회수 1만을 넘겼을 때',q3:'아이디어를 자유롭게 내고 빠르게 실행해 보는 팀',
+ c1:'경영학(마케팅 중심), 데이터 분석 수업에 자신 있음',c2:'미디어·콘텐츠, 소비재 / 스타트업·중견기업 선호',c3:'SNS 콘텐츠 기획, 영상 편집, 트렌드 찾아보기',c4:'아이디어 내기, 숫자로 정리해 설명하기, 팀에서 기획 담당',c5:'성장과 자율성',c6:'반복 업무만 계속하는 환경, 지시만 받는 방식',
  interest:'SNS 콘텐츠 기획과 데이터 분석 경험',pick_0_0:'콘텐츠 마케터',pick_0_1:'기획과 데이터 분석을 함께 쓸 수 있음',pick_0_2:'미디어·플랫폼',pick_1_0:'브랜드 마케터',pick_1_1:'브랜드 스토리 기획에 관심',pick_1_2:'소비재',pick_2_0:'서비스 기획자',pick_2_1:'사용자 경험을 설계하고 싶음',pick_2_2:'IT 서비스',
  job:'콘텐츠 마케터',field:'마케팅',jd_0_0:'타깃에게 맞는 콘텐츠를 기획·제작·분석해 브랜드 성과를 높이는 직무',jd_1_0:'1) 콘텐츠 기획 2) 채널 운영 3) 성과 분석 4) 광고 집행 5) 협업 커뮤니케이션',jd_2_0:'아이디어가 성과 지표로 바로 확인됨',jd_3_0:'성과 압박, 트렌드 변화 속도',jd_4_0:'데이터 해석력, 글쓰기, 협업 태도',
  co:'○○기업',jobp:'콘텐츠 마케터',url:'(채용공고 URL)',ksa_0_0:'마케팅 원론, 소비자 행동',ksa_0_1:'GA 기초, 영상 편집',ksa_0_2:'주도성',ksa_1_0:'디지털 광고 구조',ksa_1_1:'엑셀 데이터 분석',ksa_1_2:'협업',
