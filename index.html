@@ -39,7 +39,7 @@ table.g textarea{min-height:54px;border:0;padding:4px;background:transparent}tab
 </style>
 </head>
 <body>
-<header><div class="in"><b>나만의 직무 분석 리포트</b><span>AI활용 맞춤형 직무탐색 워크시트 · 커리어클래스</span></div></header>
+<header><div class="in"><b>나만의 직무 분석 리포트</b><span>AI활용 맞춤형 직무탐색 워크시트</span></div></header>
 <div class="wrap"><nav id="nav" aria-label="워크시트 단계"></nav><main id="main"></main></div>
 <script src="docx.iife.js"></script>
 <script>
@@ -276,7 +276,7 @@ function buildDoc(X){
  ch.push(H('04  나의 역량 갭 분석',2),gridT('r_gap',['✅ 나의 강점 (직무와 연결)','⚠️ 부족한 부분 (역량 갭)','📅 3개월 내 준비 계획','🎯 장기 목표'],['내용','비고 / 출처']));
  ch.push(H('05  나의 3개월 준비 로드맵',2),gridT('r_road',['1개월차','2개월차','3개월차','완료 기준 (어떻게 되면 성공인가?)'],['주요 실행 계획 (구체적으로)'],'기간'));
  ch.push(sp(),note('AI 초안을 기반으로 나의 실제 경험(동아리, 아르바이트, 수업 프로젝트 등)을 추가하고, 숫자와 구체적 사례를 넣을수록 자소서에서 강력한 스토리가 됩니다.'));
- return new Document({creator:'커리어클래스',title:'나만의 직무 분석 리포트',styles:{default:{document:{run:{font:FONT,size:20}}}},sections:[{properties:{page:{size:{width:11906,height:16838},margin:{top:1134,bottom:1134,left:1134,right:1134}}},children:ch}]});
+ return new Document({creator:"HR Mentors",title:'나만의 직무 분석 리포트',styles:{default:{document:{run:{font:FONT,size:20}}}},sections:[{properties:{page:{size:{width:11906,height:16838},margin:{top:1134,bottom:1134,left:1134,right:1134}}},children:ch}]});
 }
 async function exportDocx(){
  const nm=(val('name')||'학생').replace(/[\\/:*?"<>|]/g,'');
